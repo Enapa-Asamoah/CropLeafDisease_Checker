@@ -30,3 +30,4 @@ hitl_feedback.json
 .env
 .env.*
 !.env.example
+activate.ps1
