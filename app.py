@@ -520,32 +520,35 @@ with right_col:
 
     # Chat input
     if st.session_state.voice_enabled:
-        speech_input = st.audio_input("Speak to AgriBot (English or Twi)")
-        if speech_input is not None:
-            audio_bytes = speech_input.getvalue()
-            audio_hash = hashlib.sha256(audio_bytes).hexdigest() if audio_bytes else ""
-            if audio_bytes and audio_hash != st.session_state.voice_last_audio_hash:
-                st.session_state.voice_last_audio_hash = audio_hash
-                deps_ok, deps_error = speech_dependencies_ready()
-                if not deps_ok:
-                    st.error(f"Voice transcription unavailable: {deps_error}")
-                else:
-                    with st.spinner("Transcribing speech..."):
-                        try:
-                            transcript, detected_lang = transcribe_audio_bytes(audio_bytes)
-                        except Exception as e:
-                            st.error(f"Transcription failed: {e}")
-                            transcript = ""
-                            detected_lang = ""
+        if not hasattr(st, "audio_input"):
+            st.info("Voice input is not available in this Streamlit version. You can still type messages.")
+        else:
+            speech_input = st.audio_input("Speak to AgriBot (English or Twi)")
+            if speech_input is not None:
+                audio_bytes = speech_input.getvalue()
+                audio_hash = hashlib.sha256(audio_bytes).hexdigest() if audio_bytes else ""
+                if audio_bytes and audio_hash != st.session_state.voice_last_audio_hash:
+                    st.session_state.voice_last_audio_hash = audio_hash
+                    deps_ok, deps_error = speech_dependencies_ready()
+                    if not deps_ok:
+                        st.error(f"Voice transcription unavailable: {deps_error}")
+                    else:
+                        with st.spinner("Transcribing speech..."):
+                            try:
+                                transcript, detected_lang = transcribe_audio_bytes(audio_bytes)
+                            except Exception as e:
+                                st.error(f"Transcription failed: {e}")
+                                transcript = ""
+                                detected_lang = ""
 
-                    if transcript:
-                        st.caption(f"Voice transcript ({detected_lang or 'auto'}): {transcript}")
-                        try:
-                            run_chat_turn(transcript, detected_lang=detected_lang)
-                            st.session_state.chat_input_key += 1
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Chat error: {e}")
+                        if transcript:
+                            st.caption(f"Voice transcript ({detected_lang or 'auto'}): {transcript}")
+                            try:
+                                run_chat_turn(transcript, detected_lang=detected_lang)
+                                st.session_state.chat_input_key += 1
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Chat error: {e}")
 
     user_input = st.chat_input(
         "Ask AgriBot anything... (English or Twi)",
