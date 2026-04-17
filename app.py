@@ -379,7 +379,7 @@ with left_col:
     )
 
     if uploaded_file:
-        st.image(uploaded_file, use_container_width=True, caption="Uploaded leaf")
+        st.image(uploaded_file, use_column_width=True, caption="Uploaded leaf")
 
     # Predict button
     st.markdown("<div style='margin-top:12px'>", unsafe_allow_html=True)
