@@ -2,13 +2,15 @@ import os
 import re
 import numpy as np
 import json
-from pathlib import Path
 
 # Lazy imports for heavy deps
 _tf = None
 _model = None
 _class_names = None
 _class_meta = None
+_backend = None
+_onnx_input_name = None
+_onnx_output_name = None
 
 IMG_SIZE = (224, 224)
 CONFIDENCE_THRESHOLD = 0.6
@@ -47,11 +49,23 @@ def format_label(label: str) -> str:
 
 
 def load_model(model_path: str, class_names_path: str):
-    """Load the saved Keras model and class names JSON."""
-    global _model, _class_names, _class_meta
-    tf = _get_tf()
+    """Load the saved ONNX/Keras model and class names JSON."""
+    global _model, _class_names, _class_meta, _backend, _onnx_input_name, _onnx_output_name
 
-    _model = tf.keras.models.load_model(model_path)
+    ext = os.path.splitext(model_path)[1].lower()
+    if ext == ".onnx":
+        import onnxruntime as ort
+
+        _model = ort.InferenceSession(model_path, providers=["CPUExecutionProvider"])
+        _onnx_input_name = _model.get_inputs()[0].name
+        _onnx_output_name = _model.get_outputs()[0].name
+        _backend = "onnx"
+    else:
+        tf = _get_tf()
+        _model = tf.keras.models.load_model(model_path)
+        _backend = "keras"
+        _onnx_input_name = None
+        _onnx_output_name = None
 
     with open(class_names_path, 'r') as f:
         _class_names = json.load(f)
@@ -76,19 +90,21 @@ def predict_disease_for_crop(crop_name: str, img_bytes: bytes) -> dict:
     if _model is None or _class_names is None:
         raise RuntimeError("Model not loaded. Call load_model() first.")
 
-    tf = _get_tf()
-    from tensorflow.keras.preprocessing.image import img_to_array, load_img
     import io
     from PIL import Image
 
     # Load and preprocess image
     img = Image.open(io.BytesIO(img_bytes)).convert('RGB').resize(IMG_SIZE)
-    img_array = img_to_array(img)
-    img_array = tf.keras.applications.mobilenet_v2.preprocess_input(img_array)
+    img_array = np.asarray(img, dtype=np.float32)
+    # Equivalent to MobileNetV2 preprocess_input in tf mode='tf': x/127.5 - 1
+    img_array = (img_array / 127.5) - 1.0
     img_array = np.expand_dims(img_array, axis=0)
 
     # Raw predictions
-    preds = _model.predict(img_array, verbose=0)[0]
+    if _backend == "onnx":
+        preds = _model.run([_onnx_output_name], {_onnx_input_name: img_array})[0][0]
+    else:
+        preds = _model.predict(img_array, verbose=0)[0]
 
     crop_name_clean = crop_name.strip().lower()
 

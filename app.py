@@ -20,7 +20,7 @@ from speech_utils import (
 )
 
 
-def load_env_file(env_path: Path) -> None:
+def load_env_file(env_path: Path, override_existing: bool = True) -> None:
     """Load simple KEY=VALUE pairs from a local .env file if present."""
     if not env_path.exists():
         return
@@ -34,11 +34,11 @@ def load_env_file(env_path: Path) -> None:
             key, value = stripped.split("=", 1)
             key = key.strip()
             value = value.strip().strip('"').strip("'")
-            if key and key not in os.environ:
+            if key and (override_existing or key not in os.environ):
                 os.environ[key] = value
 
 
-load_env_file(Path(__file__).resolve().parent / ".env")
+load_env_file(Path(__file__).resolve().parent / ".env", override_existing=True)
 
 # ── Page config ──────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -224,7 +224,10 @@ if "voice_last_reply_audio" not in st.session_state:
     st.session_state.voice_last_reply_audio = b""
 
 MODEL_DIR = Path(__file__).resolve().parent / "models"
-DEFAULT_MODEL_PATH = MODEL_DIR / "crop_model.keras"
+MODEL_CANDIDATES = [
+    MODEL_DIR / "crop_model.onnx",
+    MODEL_DIR / "crop_model.keras",
+]
 DEFAULT_CLASS_NAMES_PATH = MODEL_DIR / "class_names.json"
 
 
@@ -234,8 +237,10 @@ def load_preloaded_model() -> None:
 
     st.session_state.model_init_attempted = True
 
-    if not DEFAULT_MODEL_PATH.exists():
-        st.session_state.model_error = f"Model file not found: {DEFAULT_MODEL_PATH}"
+    model_path = next((candidate for candidate in MODEL_CANDIDATES if candidate.exists()), None)
+    if model_path is None:
+        expected = ", ".join(str(p.name) for p in MODEL_CANDIDATES)
+        st.session_state.model_error = f"Model file not found. Expected one of: {expected}"
         return
     if not DEFAULT_CLASS_NAMES_PATH.exists():
         st.session_state.model_error = f"Class names file not found: {DEFAULT_CLASS_NAMES_PATH}"
@@ -243,9 +248,10 @@ def load_preloaded_model() -> None:
 
     with st.spinner("Loading preloaded model..."):
         try:
-            load_model(str(DEFAULT_MODEL_PATH), str(DEFAULT_CLASS_NAMES_PATH))
+            load_model(str(model_path), str(DEFAULT_CLASS_NAMES_PATH))
             st.session_state.model_loaded = True
             st.session_state.model_error = ""
+            st.session_state.model_source_name = model_path.name
         except Exception as e:
             st.session_state.model_error = f"Failed to load preloaded model: {e}"
 
@@ -288,14 +294,15 @@ with st.sidebar:
     st.divider()
 
     if st.session_state.model_loaded:
-        st.markdown("✅ **Model ready**", unsafe_allow_html=False)
+        st.markdown("**Model ready**", unsafe_allow_html=False)
     else:
         st.markdown("⚠️ **Model not loaded**")
 
     if st.session_state.model_error:
         st.error(st.session_state.model_error)
 
-    st.caption(f"Loaded from: {DEFAULT_MODEL_PATH.name} + {DEFAULT_CLASS_NAMES_PATH.name}")
+    source_name = st.session_state.get("model_source_name", MODEL_CANDIDATES[0].name)
+    st.caption(f"Loaded from: {source_name} + {DEFAULT_CLASS_NAMES_PATH.name}")
 
     st.divider()
     st.markdown("<p class='section-label'>About</p>", unsafe_allow_html=True)
@@ -376,7 +383,7 @@ with left_col:
 
     # Predict button
     st.markdown("<div style='margin-top:12px'>", unsafe_allow_html=True)
-    predict_btn = st.button("🧠 Analyse Leaf", disabled=not st.session_state.model_loaded)
+    predict_btn = st.button("Analyse Leaf", disabled=not st.session_state.model_loaded)
     st.markdown("</div>", unsafe_allow_html=True)
 
     if not st.session_state.model_loaded:
@@ -557,7 +564,7 @@ with right_col:
         st.audio(st.session_state.voice_last_reply_audio, format="audio/wav")
 
     # Clear chat button
-    if st.button("🗑️ Clear chat", key="clear_chat"):
+    if st.button("Clear chat", key="clear_chat"):
         st.session_state.chat_history = [
             {"role": "assistant", "content": get_welcome_message()}
         ]
