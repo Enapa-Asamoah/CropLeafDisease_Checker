@@ -11,6 +11,11 @@ A Streamlit app for crop disease detection using your trained MobileNetV2 model,
 pip install -r requirements.txt
 ```
 
+Optional voice features (local only):
+```bash
+pip install -r requirements-voice.txt
+```
+
 ### 2. Set your OpenAI API key (for AgriBot chat)
 ```bash
 set OPENAI_API_KEY="your-key-here"
@@ -45,6 +50,29 @@ Then place `models/` in the same directory as `app.py`.
 ```bash
 streamlit run app.py
 ```
+
+---
+
+## Deploy on Streamlit Community Cloud
+
+1. Push this project to GitHub (already done for this repo).
+2. Go to https://share.streamlit.io and click **Create app**.
+3. Select repository: `Enapa-Asamoah/CropLeafDisease_Checker`.
+4. Set branch to `main`.
+5. Set main file path to `app.py`.
+6. In **Advanced settings -> Secrets**, add:
+
+```toml
+OPENAI_API_KEY = "your_real_key_here"
+```
+
+7. Click **Deploy**.
+
+Notes for cloud deployment:
+- `runtime.txt` is pinned to Python 3.11 for compatibility.
+- Voice dependencies are excluded from cloud install to keep build reliable.
+- The app still runs without voice; it will automatically show voice unavailable if optional packages are missing.
+- Ensure `models/crop_model.keras` and `models/class_names.json` remain in the repo.
 
 ---
 
