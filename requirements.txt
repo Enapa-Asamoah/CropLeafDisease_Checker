@@ -1,0 +1,13 @@
+streamlit>=1.35.0
+tensorflow>=2.15.0
+numpy>=1.24.0
+pillow>=10.0.0
+plotly>=5.18.0
+tf2onnx>=1.16.1
+onnx>=1.17.0
+onnxruntime>=1.20.0
+faster-whisper>=1.1.1
+transformers>=4.46.0
+torch>=2.4.0
+soundfile>=0.12.1
+openai>=1.45.0
